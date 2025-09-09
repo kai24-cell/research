@@ -35,26 +35,26 @@ def Netkill(interface="enX0",waittime=5):
         with open(createfile,"w") as wfile:
             wfile.write("start")
             wfile.flush()
-            subprocess.run(down, stdout=wfile, stderr=wfile)
-            time.sleep(waittime)
-
-            subprocess.run(["sudo", "ip", "link", "set", "enX0", "up"], stdout=wfile, stderr=wfile)
-            
+            subprocess.run(down,check=True, stdout=wfile, stderr=wfile)
+            time.sleep(waittime)      
     except FileNotFoundError:
             print("nofile")
             return None
     except subprocess.CalledProcessError:
         print("cannt do command")
-    except KeyboardInterrupt:.
+    except KeyboardInterrupt:
         print("canceled")
     finally:
         try:
-        except Exception:
+            subprocess.run(up,check=True, stdout=wfile, stderr=wfile,text=True)
+            print("network success up")
+        except Exception as dangerouserr:
+            print("bigerr:{dangerouserr}")
             return None
     with open(createfile,"a"):
         wfile.write("finish")
     return createfile
-#プロセスクラッシュ(疑似)
+#プロセスクラッシュ
 def Processcra():
     createfile = f"ProcessCrash{int(time.time())}.log" #ファイル名被り対策にtime使ってる
     with open(createfile,"w") as wfile:
@@ -65,5 +65,9 @@ def Processcra():
 
 if __name__ =="__main__":
     netinterface ="enX0"
-    Netkill(netinterface,10)
+    file =Netkill(netinterface,10)
+    #file =CPUtra(2,5)
+    #file =Netkill(netinterface,10)
+    s3operate.upload_file(file,bucket,file)
+    os.remove(file)
 
