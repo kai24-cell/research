@@ -2,8 +2,10 @@ import boto3 as sdk
 import time
 import subprocess
 import os
+import signal
 s3operate=sdk.client("s3")
 bucket ="rescorr"
+PROCESSSCRIPT ="process.py"
 
 #CPU高負荷
 def CPUtra(core=None,donetime=5):
@@ -46,28 +48,43 @@ def Netkill(interface="enX0",waittime=5):
         print("canceled")
     finally:
         try:
-            subprocess.run(up,check=True, stdout=wfile, stderr=wfile,text=True)
+            detail=subprocess.run(up,check=True, capture_output=True,text=True)#デバック用detail
             print("network success up")
         except Exception as dangerouserr:
-            print("bigerr:{dangerouserr}")
+            print("bigerr:{dangerouserr}\n")
             return None
-    with open(createfile,"a"):
+    with open(createfile,"a") as wfile:
         wfile.write("finish")
     return createfile
 #プロセスクラッシュ
 def Processcra():
-    createfile = f"ProcessCrash{int(time.time())}.log" #ファイル名被り対策にtime使ってる
+    monitoringtime =30
+    createfile = f"ProcessCrash{int(time.time())}.log" #ファイル名被り対策にtime使ってる        
     with open(createfile,"w") as wfile:
-        wfile.write("start")
-        subprocess.run(["kill", "-9", "99999"], wfile, wfile)
-        wfile.write("finish")
+        wfile.write("start\n")
+    try:
+        PROCESS = subprocess.Popen(["python","-u",PROCESSSCRIPT])
+        killprocess =PROCESS.pid
+    except FileNotFoundError:
+        print("nofile{PROCESSSCRIPT}")
+        return None
+    wfile.write("{PROCESSSCRIPT}killstart{killprocess}")
+    time.sleep(monitoringtime)
+    
+    print("clash")
+    wfile.write("{killprocess}\n")
+
+    try:
+        os.kill(killprocess,signal.SIGILL)
+        wfile.write("kill process\n")
+    except ProcessLookupError:
+        wfile.write("process already ended")
+    wfile.write("finish")
     return createfile
 
 if __name__ =="__main__":
     netinterface ="enX0"
     file =Netkill(netinterface,10)
-    #file =CPUtra(2,5)
-    #file =Netkill(netinterface,10)
     s3operate.upload_file(file,bucket,file)
     os.remove(file)
 
