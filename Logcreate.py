@@ -3,9 +3,8 @@ import time
 import subprocess
 import os
 import signal
-s3operate=sdk.client("s3")
-bucket ="rescorr"
-PROCESSSCRIPT ="process.py"
+from botocore.exceptions import NoCredentialsError, BotoCoreError 
+
 
 #CPU高負荷
 def CPUtra(core=None,donetime=5):
@@ -57,34 +56,56 @@ def Netkill(interface="enX0",waittime=5):
         wfile.write("finish")
     return createfile
 #プロセスクラッシュ
-def Processcra():
-    monitoringtime =30
-    createfile = f"ProcessCrash{int(time.time())}.log" #ファイル名被り対策にtime使ってる        
-    with open(createfile,"w") as wfile:
-        wfile.write("start\n")
-    try:
-        PROCESS = subprocess.Popen(["python","-u",PROCESSSCRIPT])
-        killprocess =PROCESS.pid
-    except FileNotFoundError:
-        print("nofile{PROCESSSCRIPT}")
-        return None
-    wfile.write("{PROCESSSCRIPT}killstart{killprocess}")
-    time.sleep(monitoringtime)
+def Processcra(PROCESSSCRIPT ="process.py",monitoringtime =30):
     
-    print("clash")
-    wfile.write("{killprocess}\n")
-
-    try:
-        os.kill(killprocess,signal.SIGILL)
-        wfile.write("kill process\n")
-    except ProcessLookupError:
-        wfile.write("process already ended")
-    wfile.write("finish")
+    createfile = f"ProcessCrash{int(time.time())}.log" #ファイル名被り対策にtime使ってる  
+    try:      
+        with open(createfile,"w") as wfile:
+            wfile.write("start\n")
+            try:
+                PROCESS = subprocess.Popen(["python","-u",PROCESSSCRIPT])
+                pid =PROCESS.pid
+                wfile.write(f"pid:{pid}\n")
+            except FileNotFoundError:
+                print("nofile")
+                wfile.write(f"notfound{PROCESSSCRIPT}\n")
+                return None
+        wfile.write(f"monitoring:{monitoringtime}\n")
+        wfile.flush()
+        time.sleep(monitoringtime)
+    except KeyboardInterrupt:
+        print("process canceled")
+    finally:
+        if pid:
+            print("ready crash")
+            try:
+                os.kill(pid,signal.SIGKILL)
+                print("kill success")
+                with open(createfile,"a") as wfile:
+                    wfile.write(f"kill success {pid} ")
+            except ProcessLookupError:
+                with open(createfile,"a") as wfile:
+                    wfile.write(f"already ended:{pid} ")
+        else:
+            print("PID is not start")
+    with open(createfile, "a") as wfile:
+        wfile.write("finish\n")
     return createfile
-
 if __name__ =="__main__":
     netinterface ="enX0"
-    file =Netkill(netinterface,10)
-    s3operate.upload_file(file,bucket,file)
-    os.remove(file)
-
+    #file =Netkill(netinterface,10)
+try:
+    s3operate=sdk.client("s3")
+    bucket ="rescorr"
+    logfile =Processcra(PROCESSSCRIPT="process.py",monitoringtime=10)
+except NoCredentialsError:
+    print("AWS account not found")
+    exit(1)
+if logfile:
+    try:
+        s3operate.upload_file(File_name = logfile,Bucket=bucket,Objectname =logfile)
+        os.remove(logfile)
+    except FileNotFoundError:
+        print("dont found upload file")
+    except BotoCoreError:
+        print("error about boto3")
