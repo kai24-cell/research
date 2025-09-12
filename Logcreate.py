@@ -10,12 +10,12 @@ from botocore.exceptions import NoCredentialsError, BotoCoreError
 def CPUtra(core=None,donetime=5):
     basiccore =1#コア数1
     if core is None:
-        core = os.core() or basiccore
+        core = os.cpu_count() or basiccore
     createfile = f"CPUtraffic{int(time.time())}.log" #ファイル名被り対策にtime使ってる
     try:
         with open(createfile, "w") as wfile:
-            wfile.write("start,core:{core},donetime:{donetime}.\n")
-            command =subprocess.run(["stress","--cpu",str(core),"--timeout",str(donetime)])
+            wfile.write(f"start,core:{core},donetime:{donetime}.\n")
+            command =["stress","--cpu",str(core),"--timeout",str(donetime)]
             print(f"Executing command: {' '.join(command)}")
             subprocess.run(command, check=True)
             wfile.write("finish.\n")
@@ -36,7 +36,7 @@ def Netkill(interface="enX0",waittime=5):
         with open(createfile,"w") as wfile:
             wfile.write("start")
             wfile.flush()
-            subprocess.run(down,check=True, stdout=wfile, stderr=wfile)
+            subprocess.run(down, check=True, stdout=wfile, stderr=wfile)
             time.sleep(waittime)      
     except FileNotFoundError:
             print("nofile")
@@ -47,18 +47,18 @@ def Netkill(interface="enX0",waittime=5):
         print("canceled")
     finally:
         try:
-            detail=subprocess.run(up,check=True, capture_output=True,text=True)#デバック用detail
+            result=subprocess.run(up,check=True, capture_output=True,text=True)#デバック用detail
             print("network success up")
+            with open(createfile,"a") as wfile:
+                wfile.write("finish")
         except Exception as dangerouserr:
-            print("bigerr:{dangerouserr}\n")
-            return None
-    with open(createfile,"a") as wfile:
-        wfile.write("finish")
+            print(f"bigerr:{dangerouserr}\n")
     return createfile
 #プロセスクラッシュ
 def Processcra(PROCESSSCRIPT ="process.py",monitoringtime =30):
     
     createfile = f"ProcessCrash{int(time.time())}.log" #ファイル名被り対策にtime使ってる  
+    pid=None
     try:      
         with open(createfile,"w") as wfile:
             wfile.write("start\n")
@@ -103,7 +103,7 @@ except NoCredentialsError:
     exit(1)
 if logfile:
     try:
-        s3operate.upload_file(File_name = logfile,Bucket=bucket,Objectname =logfile)
+        s3operate.upload_file(Filename = logfile,Bucket=bucket,Objectname =logfile)
         os.remove(logfile)
     except FileNotFoundError:
         print("dont found upload file")
