@@ -4,14 +4,18 @@ import subprocess
 import os
 import signal
 from botocore.exceptions import NoCredentialsError, BotoCoreError 
-
+import psutil#pip install pstil
 
 #CPU高負荷
-def CPUtra(core=None,donetime=5):
+def stress_cpu(core=None,donetime=5):
+    """
+    stressコマンドを使い、指定されたコア数と時間でCPUに負荷をかける。
+    要件: 'stress' コマンドがインストールされていること。
+    """
     basiccore =1#コア数1
     if core is None:
         core = os.cpu_count() or basiccore
-    createfile = f"CPUtraffic{int(time.time())}.log" #ファイル名被り対策にtime使ってる
+    createfile = f"stress_cpu{int(time.time())}.log" #ファイル名被り対策にtime使ってる
     try:
         with open(createfile, "w") as wfile:
             wfile.write(f"start,core:{core},donetime:{donetime}.\n")
@@ -28,8 +32,12 @@ def CPUtra(core=None,donetime=5):
     return createfile
 
 #ネットワーク切断
-def Netkill(interface="enX0",waittime=5):
-    createfile = f"Networkkill{int(time.time())}.log" #ファイル名被り対策にtime使ってる
+def disrupt_network(interface="enX0",waittime=5):
+    """
+    指定されたネットワークインターフェースを一度ダウンさせ、指定時間後にアップさせる。
+    注意: この関数は 'sudo' を必要とする。パスワードなしで 'ip' コマンドが実行できるか確認。
+    """
+    createfile = f"disrupt_network{int(time.time())}.log" #ファイル名被り対策にtime使ってる
     down =["sudo", "ip", "link", "set", interface, "down"]
     up=["sudo", "ip", "link", "set", interface, "up"]
     try:
@@ -55,20 +63,22 @@ def Netkill(interface="enX0",waittime=5):
             print(f"bigerr:{dangerouserr}\n")
     return createfile
 #プロセスクラッシュ
-def Processcra(PROCESSSCRIPT ="process.py",monitoringtime =30):
-    
-    createfile = f"ProcessCrash{int(time.time())}.log" #ファイル名被り対策にtime使ってる  
+def crash_process(process_script ="process.py",monitoringtime =30):
+    """
+    指定されたPythonスクリプトをサブプロセスとして起動し、一定時間後にSIGKILLで強制終了させる。
+    """
+    createfile = f"crash_process{int(time.time())}.log" #ファイル名被り対策にtime使ってる  
     pid=None
     try:      
         with open(createfile,"w") as wfile:
             wfile.write("start\n")
             try:
-                PROCESS = subprocess.Popen(["python","-u",PROCESSSCRIPT])
+                PROCESS = subprocess.Popen(["python","-u",process_script])
                 pid =PROCESS.pid
                 wfile.write(f"pid:{pid}\n")
             except FileNotFoundError:
                 print("nofile")
-                wfile.write(f"notfound{PROCESSSCRIPT}\n")
+                wfile.write(f"notfound{process_script}\n")
                 return None
         wfile.write(f"monitoring:{monitoringtime}\n")
         wfile.flush()
@@ -88,22 +98,25 @@ def Processcra(PROCESSSCRIPT ="process.py",monitoringtime =30):
                     wfile.write(f"already ended:{pid} ")
         else:
             print("PID is not start")
-    with open(createfile, "a") as wfile:
-        wfile.write("finish\n")
+        with open(createfile, "a") as wfile:
+            wfile.write("finish\n")
     return createfile
 if __name__ =="__main__":
     netinterface ="enX0"
-    #file =Netkill(netinterface,10)
 try:
     s3operate=sdk.client("s3")
     bucket ="rescorr"
-    logfile =Processcra(PROCESSSCRIPT="process.py",monitoringtime=10)
+    logfile =crash_process(process_script="process.py",monitoringtime=10)
 except NoCredentialsError:
     print("AWS account not found")
     exit(1)
+class MetricsCollector:
+    def cpu():
+        
+
 if logfile:
     try:
-        s3operate.upload_file(Filename = logfile,Bucket=bucket,Objectname =logfile)
+        s3operate.upload_file(Filename = logfile,Bucket=bucket,Key =logfile)
         os.remove(logfile)
     except FileNotFoundError:
         print("dont found upload file")
