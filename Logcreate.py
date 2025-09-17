@@ -99,6 +99,8 @@ class MetricsCollector(threading.Thread):
         self.interval=interval
         self.correct_log = []
         self._stop_event =threading.Event()
+        self.last_disk_io = psutil.disk_io_counters()
+        self.last_net_io =psutil.net_io_counters()
     def run(self):
         print("start")
         while not self._stop_event.is_set():
