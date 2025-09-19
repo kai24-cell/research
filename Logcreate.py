@@ -6,6 +6,9 @@ import signal
 from botocore.exceptions import NoCredentialsError, BotoCoreError 
 import psutil#pip install pstil
 import threading
+from datetime import datetime
+import zoneinfo
+import csv
 
 #CPU高負荷
 def stress_cpu(core=None,donetime=5):
@@ -104,18 +107,66 @@ class MetricsCollector(threading.Thread):
     def run(self):
         print("start")
         while not self._stop_event.is_set():
-            timestanp = time.time()
+            japan = zoneinfo.ZoneInfo("Asia/Tokyo")
+            timestanp = datetime.now(japan).isoformat() 
+            #cpuメトリクス
             cpu_percent = psutil.cpu_percent
+            cpu_times = psutil.cpu_times_percent()#cpu使用時間
+            load_avg = psutil.getloadavg()#処理待ちで何件タスクたまってるかの平均
+            #メモリメトリクス
             memory_percent = psutil.virtual_memory().percent
+            swap_percent = psutil.swap_memory().percent
+
+            #ディスクI/Oレート (差分を計算) 
+            current_disk_io = psutil.disk_io_counters()
+            disk_read_rate = (current_disk_io.read_bytes - self.last_disk_io.read_bytes) / self.interval
+            disk_write_rate = (current_disk_io.write_bytes - self.last_disk_io.write_bytes) / self.interval
+            self.last_disk_io = current_disk_io
+            
+            #ネットワークI/Oレート (差分を計算)
+            current_net_io = psutil.net_io_counters()
+            net_sent_rate = (current_net_io.bytes_sent - self.last_net_io.bytes_sent) / self.interval
+            net_recv_rate = (current_net_io.bytes_recv - self.last_net_io.bytes_recv) / self.interval
+            self.last_net_io = current_net_io
+
+            #プロセス数
+            process_count = len(psutil.pids())
 
             self.correct_log({
                 "timestanp":timestanp,
                 "cpu_percent":cpu_percent,
+                "cpu_times_user":cpu_times.user,
+                "cpu_times_system":cpu_times.system,
+                "cpu_times_idle":cpu_times.idle,
+                "cpu_times_iowait":cpu_times.iowait,#ローカルじゃテストできない。Linaxでしか実行できないから
+                "load_avg":load_avg[0],
                 "memory_percent":memory_percent,
+                "swap_percent":swap_percent,
+                "current_disk_io":current_disk_io,
+                "disk_read_rate":disk_read_rate,
+                "disk_write_rate":disk_write_rate,
+                "net_sent_rate":net_sent_rate,
+                "net_recv_rate":net_recv_rate,
+                "process_count":process_count,
+
             })
             time.sleep(self.interval)
     def stop(self):
         self._stop_event.set()
+def save_to_csv(data,file_name,local_directry):
+    os.makedirs(local_directry,exist_ok=True)
+    filepath =os.path.join(local_directry,file_name)
+
+    headers =data[0].keys()
+
+    with open(filepath, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=headers)
+        writer.writeheader()
+        writer.writerows(data)
+    return filepath
+
+
+    
 if __name__ =="__main__":
     net_interface ="enX0"
 try:
