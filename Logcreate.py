@@ -154,6 +154,9 @@ class MetricsCollector(threading.Thread):
     def stop(self):
         self._stop_event.set()
 def save_to_csv(data,file_name,local_directry):
+    if not data:
+        print("no data")
+        return
     os.makedirs(local_directry,exist_ok=True)
     filepath =os.path.join(local_directry,file_name)
 
@@ -164,15 +167,30 @@ def save_to_csv(data,file_name,local_directry):
         writer.writeheader()
         writer.writerows(data)
     return filepath
+def run_experiment(func,args,type,local_dir):
+    collector = MetricsCollector(interval=1.0)
 
+    filename_time = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+    csv_filename = f"{type}_{filename_time}.csv"
 
-    
+    try:
+        collector.start()
+        func(**args)
+    except Exception as e:
+        print(f"error{e}")
+    finally:
+        collector.join
+        collector.stop
+    file_path =save_to_csv(collector.correct_log,csv_filename,local_dir)
+    return file_path
+
 if __name__ =="__main__":
     net_interface ="enX0"
-try:
-    s3operate=sdk.client("s3")
-    bucket ="rescorr"
-    collector = MetricsCollector(interval=1.0)
+    s3_bucket ="rescorr"
+    try:
+        s3operate=sdk.client("s3")
+            
+        
 
     #stress_cpuの実行部分
     collector.start()
@@ -200,7 +218,7 @@ except NoCredentialsError:
     exit(1)
 if createfile:
     try:
-        s3operate.upload_file(Filename = createfile,Bucket=bucket,Key =createfile)
+        s3operate.upload_file(Filename = createfile,Bucket=s3_bucket,Key =createfile)
         os.remove(createfile)
     except FileNotFoundError:
         print("dont found upload file")
