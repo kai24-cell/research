@@ -187,40 +187,26 @@ def run_experiment(func,args,type,local_dir):
 if __name__ =="__main__":
     net_interface ="enX0"
     s3_bucket ="rescorr"
+    LOCAL_LOG_DIR = "experiment_logs"
     try:
         s3operate=sdk.client("s3")
+
+        #実行部分
+        experience_do = run_experiment{
+            func = stress_cpu,
+            args = {'core':1,'duration':15},
+            type = 'cpu_stress',
+            local_dir = LOCAL_LOG_DIR
+        }
+        if experience_do:
             
-        
-
-    #stress_cpuの実行部分
-    collector.start()
-    createfile = f"stress_cpu{int(time.time())}.log" #ファイル名被り対策にtime使ってる
-    with open(createfile, "w") as wfile:
-        basiccore =1#コア数1
-        core =1#コア数ここで指定
-        donetime=10
-        if core is None:
-            core = os.cpu_count() or basiccore
-        wfile.write(f"start,core:{core},donetime:{donetime}.\n")
-        stress_cpu(core,donetime)
-    
-        collector.stop()
-        collector.join()
-        print(f"Collected data:{len(collector.correct_log)}")
-        for x in collector.correct_log:
-            print(x)
-            wfile.write(f"{x}\n")
-        wfile.write("finish.\n")
-
-    logfile =crash_process(process_script="process.py",monitoringtime=10)
-except NoCredentialsError:
-    print("AWS account not found")
-    exit(1)
-if createfile:
-    try:
-        s3operate.upload_file(Filename = createfile,Bucket=s3_bucket,Key =createfile)
-        os.remove(createfile)
+            s3_key = f""
+            s3operate.upload_file(Filename = experience_do,Bucket=s3_bucket,Key =s3_key)
+    except NoCredentialsError:
+            print("aws is not found")
     except FileNotFoundError:
-        print("dont found upload file")
+            print("dont found upload file")
     except BotoCoreError:
-        print("error about boto3")
+            print("error about boto3")
+    finally:
+            os.remove(experience_do)
