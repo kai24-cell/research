@@ -192,16 +192,16 @@ if __name__ =="__main__":
         s3operate=sdk.client("s3")
 
         #実行部分
-        experience_do = run_experiment{
+        cpu_log_filepath = run_experiment(
             func = stress_cpu,
             args = {'core':1,'duration':15},
             type = 'cpu_stress',
             local_dir = LOCAL_LOG_DIR
-        }
-        if experience_do:
+        )
+        if cpu_log_filepath:
             
-            s3_key = f""
-            s3operate.upload_file(Filename = experience_do,Bucket=s3_bucket,Key =s3_key)
+            s3_key =  f"raw-data/cpu_stress/{os.path.basename(cpu_log_filepath)}"
+            s3operate.upload_file(Filename = cpu_log_filepath,Bucket=s3_bucket,Key =s3_key)
     except NoCredentialsError:
             print("aws is not found")
     except FileNotFoundError:
@@ -209,4 +209,4 @@ if __name__ =="__main__":
     except BotoCoreError:
             print("error about boto3")
     finally:
-            os.remove(experience_do)
+            os.remove(cpu_log_filepath)
