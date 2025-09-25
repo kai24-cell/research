@@ -202,11 +202,36 @@ if __name__ =="__main__":
             
             s3_key =  f"raw-data/cpu_stress/{os.path.basename(cpu_log_filepath)}"
             s3operate.upload_file(Filename = cpu_log_filepath,Bucket=s3_bucket,Key =s3_key)
+            os.remove(cpu_log_filepath)
+
+        network_log_filepath = run_experiment(
+            func =disrupt_network,
+            args ={'interface':net_interface,'waittime':5},
+            type = 'disrupt_network',
+            local_dir = LOCAL_LOG_DIR
+        )
+        if network_log_filepath:
+
+            s3_key =f"raw-data/disrupt_network/{os.path.basename(network_log_filepath)}"
+            s3operate.upload_file(Filename = network_log_filepath,Bucket=s3_bucket,Key =s3_key)
+            os.remove(network_log_filepath)
+
+            #crash_process(process_script ="process.py",monitoringtime =30):
+        process_log_filepath = run_experiment(
+            func=crash_process,
+            args={'process_script':"process.py",'monitoringtime': 30},
+            type=crash_process,
+            local_dir=LOCAL_LOG_DIR
+        )
+        if process_log_filepath:
+            s3_key =f"raw-data/crash_process/{os.path.basename(process_log_filepath)}"
+            s3operate.upload_file(Filename = process_log_filepath,Bucket=s3_bucket,Key =s3_key)
+            os.remove(process_log_filepath)
+
+
     except NoCredentialsError:
             print("aws is not found")
     except FileNotFoundError:
             print("dont found upload file")
     except BotoCoreError:
             print("error about boto3")
-    finally:
-            os.remove(cpu_log_filepath)
