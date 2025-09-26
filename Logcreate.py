@@ -14,87 +14,43 @@ import csv
 def stress_cpu(core=None,donetime=5):
     """
     stressコマンドを使い、指定されたコア数と時間でCPUに負荷をかける。
-    """
-    try:         
-        command =["stress","--cpu",str(core),"--timeout",str(donetime)]
-        print(f"Executing command: {' '.join(command)}")
-        subprocess.run(command, check=True)
-    except FileNotFoundError:
-        print("nofile")
-        return None
-    except subprocess.CalledProcessError:
-        print("cannt do command")
-        return None
+    """     
+    command =["stress","--cpu",str(core),"--timeout",str(donetime)]
+    subprocess.run(command, check=True,capture_output=True)
 #ネットワーク切断
 def disrupt_network(interface="enX0",waittime=5):
     """
     指定されたネットワークインターフェースを一度ダウンさせ、指定時間後にアップさせる。
     注意: この関数は 'sudo' を必要とする。パスワードなしで 'ip' コマンドが実行できるか確認。
     """
-    createfile = f"disrupt_network{int(time.time())}.log" #ファイル名被り対策にtime使ってる
     down =["sudo", "ip", "link", "set", interface, "down"]
     up=["sudo", "ip", "link", "set", interface, "up"]
     try:
-        with open(createfile,"w") as wfile:
-            wfile.write("start")
-            wfile.flush()
-            subprocess.run(down, check=True, stdout=wfile, stderr=wfile)
-            time.sleep(waittime)      
-    except FileNotFoundError:
-            print("nofile")
-            return None
-    except subprocess.CalledProcessError:
-        print("cannt do command")
-    except KeyboardInterrupt:
-        print("canceled")
+        subprocess.run(down, check=True, capture_output=True)
+        time.sleep(waittime)      
     finally:
-        try:
-            result=subprocess.run(up,check=True, capture_output=True,text=True)#デバック用detail
-            print("network success up")
-            with open(createfile,"a") as wfile:
-                wfile.write("finish")
-        except Exception as dangerouserr:
-            print(f"bigerr:{dangerouserr}\n")
-    return createfile
+        subprocess.run(up,check=True, capture_output=True,text=True)#デバック用detail
 #プロセスクラッシュ
 def crash_process(process_script ="process.py",monitoringtime =30):
     """
     指定されたPythonスクリプトをサブプロセスとして起動し、一定時間後にSIGKILLで強制終了させる。
-    """
-    createfile = f"crash_process{int(time.time())}.log" #ファイル名被り対策にtime使ってる  
+    """  
     pid=None
     try:      
-        with open(createfile,"w") as wfile:
-            wfile.write("start\n")
-            try:
-                PROCESS = subprocess.Popen(["python","-u",process_script])
-                pid =PROCESS.pid
-                wfile.write(f"pid:{pid}\n")
-            except FileNotFoundError:
-                print("nofile")
-                wfile.write(f"notfound{process_script}\n")
-                return None
-        wfile.write(f"monitoring:{monitoringtime}\n")
-        wfile.flush()
+            
+        
+        PROCESS = subprocess.Popen(["python","-u",process_script])
+        pid =PROCESS.pid
         time.sleep(monitoringtime)
     except KeyboardInterrupt:
         print("process canceled")
     finally:
         if pid:
             print("ready crash")
-            try:
-                os.kill(pid,signal.SIGKILL)
-                print("kill success")
-                with open(createfile,"a") as wfile:
-                    wfile.write(f"kill success {pid} ")
-            except ProcessLookupError:
-                with open(createfile,"a") as wfile:
-                    wfile.write(f"already ended:{pid} ")
+            os.kill(pid,signal.SIGKILL)
+            print("kill success")
         else:
             print("PID is not start")
-        with open(createfile, "a") as wfile:
-            wfile.write("finish\n")
-    return createfile
 #データ記録クラス   
 class MetricsCollector(threading.Thread):
     def __init__(self,interval=1.0):
@@ -110,7 +66,7 @@ class MetricsCollector(threading.Thread):
             japan = zoneinfo.ZoneInfo("Asia/Tokyo")
             timestanp = datetime.now(japan).isoformat() 
             #cpuメトリクス
-            cpu_percent = psutil.cpu_percent
+            cpu_percent = psutil.cpu_percent()
             cpu_times = psutil.cpu_times_percent()#cpu使用時間
             load_avg = psutil.getloadavg()#処理待ちで何件タスクたまってるかの平均
             #メモリメトリクス
@@ -132,7 +88,7 @@ class MetricsCollector(threading.Thread):
             #プロセス数
             process_count = len(psutil.pids())
 
-            self.correct_log({
+            self.correct_log.append({
                 "timestanp":timestanp,
                 "cpu_percent":cpu_percent,
                 "cpu_times_user":cpu_times.user,
@@ -179,8 +135,8 @@ def run_experiment(func,args,type,local_dir):
     except Exception as e:
         print(f"error{e}")
     finally:
-        collector.join
-        collector.stop
+        collector.join()
+        collector.stop()
     file_path =save_to_csv(collector.correct_log,csv_filename,local_dir)
     return file_path
 
@@ -216,11 +172,10 @@ if __name__ =="__main__":
             s3operate.upload_file(Filename = network_log_filepath,Bucket=s3_bucket,Key =s3_key)
             os.remove(network_log_filepath)
 
-            #crash_process(process_script ="process.py",monitoringtime =30):
         process_log_filepath = run_experiment(
             func=crash_process,
             args={'process_script':"process.py",'monitoringtime': 30},
-            type=crash_process,
+            type='crash_process',
             local_dir=LOCAL_LOG_DIR
         )
         if process_log_filepath:
